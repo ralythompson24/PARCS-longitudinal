@@ -1,0 +1,327 @@
+---
+title: "PARCS longitudinal data"
+author: "Rachel L. Thompson"
+date: "2023-12-01"
+output: html_document
+---
+
+```{r load-packages}
+library(tidyverse)
+library(haven)
+library(gtsummary)
+```
+
+
+# Read in SPSS data
+```{r read-data, message=FALSE, include=FALSE}
+baseline <- read_sav("Data/MASTER baseline _Adult and Youth merged FINAL 7.5.20.sav")
+
+w2 <- read_sav("Data/MASTER w2 adult and youth merged.sav")
+
+w3 <- read_sav("Data/MASTER W3 adult and youth merged FINAL.sav")
+
+```
+
+# Overall sample size check
+```{r}
+baseline %>% 
+  group_by(Cohort) %>% 
+  summarise(n = n())
+```
+
+
+```{r}
+w2 %>% 
+  group_by(COHORT) %>% 
+  summarise(n = n())
+```
+```{r}
+w3 %>% 
+  group_by(COHORT) %>% 
+  summarise(n = n())
+```
+# Construct Scales at Each Time Point
+
+## Sense of Community Index II
+
+https://dl.icdst.org/pdfs/files/f458f0f15016819295377e5a979b1893.pdf 
+
+Chavis, D.M., Lee, K.S., & Acosta J.D. (2008). The Sense of Community (SCI) Revised: The Reliability and
+Validity of the SCI-2. Paper presented at the 2nd International Community Psychology Conference,
+Lisboa, Portugal.
+
+###Instructions for Scoring the Revised Sense of Community Index
+#### Identifying the Community Referent  
+The attached scale was developed to be used in many different types of communities. Be sure to specify
+the type of community the scale is referring to before administering the scale. Do not use “your
+community” as the referent.  
+
+#### Interpreting the Initial Question  
+The initial question “How important is it to you to feel a sense of community with other community
+members?” is a validating question that can be used to help you interpret the results. We have found
+that total sense of community is correlated with this question – but keep in mind this may not be true in
+every community.
+
+#### Scoring the Scale
+For the 24 questions that comprise the revised Sense of Community Index participants:
+
+- Not at All = 0, Somewhat = 1, Mostly = 2, Completely = 3
+- Total Sense of Community Index = Sum of Q1 to Q24
+
+Subscales 
+- Reinforcement of Needs = Q1 + Q2 + Q3 + Q4 + Q5 + Q6
+- Membership = Q7 + Q8 + Q9 + Q10 + Q11 + Q12
+- Influence = Q13 + Q14 + Q15 + Q16 + Q17 + Q18
+- Shared Emotional Connection = Q19 + Q20 + Q21 + Q22 + Q23 + Q24
+
+## Examine Raw Inputs (check for werid and missing things)
+```{r}
+# Baseline
+tbl_summary(
+  baseline,
+  include = c(271:295), 
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+```{r}
+# W2
+tbl_summary(
+  w2,
+  include = c(149:173), 
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+
+```{r}
+# W3
+tbl_summary(
+  w3,
+  include = c(187:211), 
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+
+# Construct SCI II and Subscales
+```{r}
+# Construct SCI II Score from questions - baseline
+baseline_scales <- baseline %>% 
+    rowwise() %>% 
+    mutate(SCI2_score_baseline = sum(c_across(272:295))) %>% 
+    ungroup()
+```
+
+```{r}
+# Construct SCI II Score from questions - w2
+w2_scales <- w2 %>% 
+    rowwise() %>% 
+    mutate(SCI2_score_w2 = sum(c_across(150:173))) %>% 
+    ungroup()
+```
+
+```{r}
+# Construct SCI II Score from questions - w3
+w3_scales <- w3 %>% 
+    rowwise() %>% 
+    mutate(SCI2_score_w3 = sum(c_across(188:211))) %>% 
+    ungroup()
+```
+
+
+
+```{r}
+# Check
+baseline_scales %>% 
+  select(272:295, SCI2_score_baseline, SCI.II.Total) 
+```
+```{r}
+# Check
+w2_scales %>% 
+  select(150:173, SCI2_score_w2, SCI.II.Total) 
+```
+```{r}
+# Check
+w3_scales %>% 
+  select(188:211, SCI2_score_w3, SCI.II.Total) 
+```
+
+
+
+
+```{r}
+# Construct SCI 2 subscales - baseline
+baseline_scales <- baseline_scales %>% 
+  mutate(SCI2_reinforcement_of_needs_baseline = `@46242` + `@42897` + `@65379` + `@71718` + 
+           `@43987` + `@38496`,
+         SCI2_membership_baseline = `@24315` + `@80714` + `@24359` + `@63377` + `@89515` + `@39920`,
+         SCI2_influence_baseline = `@15989` + `@12255` + `@87666` + `@31253` + `@92328` + `@20836`, 
+         SCI2_shared_emotional_connection_baseline = `@77731`+ `@25861` + `@60118`+ `@16393` + `@87417` +
+           `@18861`) 
+```
+
+```{r}
+# Construct SCI 2 subscales - w2
+w2_scales <- w2_scales %>% 
+  mutate(SCI2_reinforcement_of_needs_w2 = `@46242` + `@42897` + `@65379` + `@71718` + 
+           `@43987` + `@38496`,
+         SCI2_membership_w2 = `@24315` + `@80714` + `@24359` + `@63377` + `@89515` + `@39920`,
+         SCI2_influence_w2 = `@15989` + `@12255` + `@87666` + `@31253` + `@92328` + `@20836`, 
+         SCI2_shared_emotional_connection_w2 = `@77731`+ `@25861` + `@60118`+ `@16393` + `@87417` +
+           `@18861`) 
+```
+
+```{r}
+# Construct SCI 2 subscales - w3
+w3_scales <- w3_scales %>% 
+  mutate(SCI2_reinforcement_of_needs_w3 = `@46242` + `@42897` + `@65379` + `@71718` + 
+           `@43987` + `@38496`,
+         SCI2_membership_w3 = `@24315` + `@80714` + `@24359` + `@63377` + `@89515` + `@39920`,
+         SCI2_influence_w3 = `@15989` + `@12255` + `@87666` + `@31253` + `@92328` + `@20836`, 
+         SCI2_shared_emotional_connection_w3 = `@77731`+ `@25861` + `@60118`+ `@16393` + `@87417` +
+           `@18861`) 
+```
+
+
+```{r}
+# Check
+baseline_scales %>% 
+  select(starts_with("SCI2"), starts_with("SCI.II"))
+```
+
+```{r}
+# Check
+w2_scales %>% 
+  select(starts_with("SCI2"), starts_with("SCI.II"))
+```
+```{r}
+# Check
+w3_scales %>% 
+  select(starts_with("SCI2"), starts_with("SCI.II"))
+```
+
+# SCI 2 Score vs. Validating Question
+```{r}
+# Baseline
+tbl_summary(
+  baseline_scales, 
+  include = c(SCI2_score_baseline),
+  by = `@87354`
+)
+```
+
+```{r}
+# w2
+tbl_summary(
+  w2_scales, 
+  include = c(SCI2_score_w2),
+  by = `@87354`
+)
+```
+
+
+```{r}
+# w3
+tbl_summary(
+  w3_scales, 
+  include = c(SCI2_score_w3),
+  by = `@87354`
+)
+```
+
+# Simplify datasets to needed variables
+```{r}
+baseline_subset <- baseline_scales %>% 
+  select(ID, Cohort, SCI2_score_baseline, Group)
+
+w2_subset <- w2_scales %>% 
+  select(ID, SCI2_score_w2)
+
+w3_subset <- w3_scales %>% 
+  select(ID, SCI2_score_w3)
+```
+
+# Combine w2 and w3
+```{r}
+w2w3_combined <- w2_subset %>% 
+  full_join(w3_subset, by = "ID") %>% 
+  mutate(SCI2_score_w2w3 = case_when(
+    !is.na(SCI2_score_w2) ~ SCI2_score_w2,
+    !is.na(SCI2_score_w3) ~ SCI2_score_w3,
+    TRUE ~ NA
+  )) %>% 
+  select(ID, SCI2_score_w2w3)
+```
+
+# Join w2w3 to baseline
+# Left join so that supplemental people without baseline are excluded
+```{r}
+long_data <- baseline_subset %>% 
+  left_join(w2w3_combined, by = "ID")
+```
+
+
+
+# Subset to longitudinal participants with baseline and follow-up for SCI-2
+```{r}
+SCI2_complete <- long_data %>% 
+  mutate(missing_baseline = is.na(SCI2_score_baseline),
+         missing_followup = is.na(SCI2_score_w2w3)) %>% 
+  filter(missing_baseline == FALSE & missing_followup == FALSE) %>% 
+  select(-missing_baseline, -missing_followup)
+```
+
+# Pivot data so there is only one y column
+```{r}
+SCI2_complete_pivot <- SCI2_complete %>% 
+  pivot_longer(cols = c(SCI2_score_baseline, SCI2_score_w2w3), names_to = "time", 
+               names_prefix = "SCI2_score_", values_to = "SCI2_score")
+  
+```
+ 
+# View distribution of outcome by group and wave
+```{r}
+SCI2_complete_pivot %>% 
+  ggplot(mapping = aes(x = SCI2_score)) +
+  geom_histogram() +
+  facet_grid(vars(Group), vars(time))
+```
+
+# Fit linear model
+```{r}
+SCI2_did <- lm(SCI2_score ~ 
+     Group + time + (Group * time), 
+   data = SCI2_complete_pivot)
+
+summary(SCI2_did)
+```
+
+
+
+# Manual diff-in-diff to plot
+```{r, fig.width = 8, fig.height = 4}
+SCI2_plot_vals <- SCI2_complete_pivot %>% 
+  mutate(group = case_when(
+    Group == 1 ~ "Intervention",
+    Group == 0 ~ "Control"
+  )) %>% 
+  group_by(group, time) %>% 
+  summarise(mean_SCI2 = mean(SCI2_score),
+            se_SCI2 = sd(SCI2_score) / sqrt(n()),
+            upper = mean_SCI2 +(-1.96 * se_SCI2),
+            lower = mean_SCI2 + (1.96 * se_SCI2))
+
+SCI2_plot_vals %>% 
+  ggplot(mapping = aes(x = time, y = mean_SCI2, color = group)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper), fatten = 8, linewidth = 1) +
+  geom_line(aes(group = group), size = 1) 
+```
+
+```{r}
+
+```
+
