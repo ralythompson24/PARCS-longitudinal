@@ -1,0 +1,215 @@
+---
+title: "data processing - neighborhood social ties"
+output: html_document
+date: "2024-01-17"
+---
+
+# Neighborhood social ties scale
+# From Kuo et al. 1998
+https://link.springer.com/article/10.1023/A:1022294028903
+
+The central dependent variable in this study was Neighborhood Social Ties (NSTs). NSTs were assessed through 8 items with responses on a 5-point Likert scale from 0 (not at all) to 4 (very much). 
+Principal components
+analysis with varimax rotation yielded three factors; items for the factors were summed to create three subscales, each of which demonstrated acceptable reliability
+ 1. Socializing includes two items 
+      ("Do you have many visitors every day?" and "Do you socialize a lot within the building?")
+ 2. Nearby Neighbors includes two items 
+      ("How well do you know the people next door?" and "How well do you know the people on your floor?") 
+ 3. Local Sense of Community includes three items 
+      ("Are people here concerned with helping and supporting one another?", "Do people here acknowledge one another when passing in the hallway?", and "Is there a strong feeling of belonging here?")
+      
+Notes: We seem to be missing one item from the scale since we only asked 7 questions (the question "Do neighbors help each other out by lending things like tools, giving someone a ride, or watching each other's houses when they're away?" from the original survey is missing)
+
+In the original paper the overall scales and subscales seem to be averaged
+
+
+## Examine raw inputs (check for weird and missing things)
+```{r NST-examine-raw-inputs}
+# Baseline
+tbl_summary(
+  baseline, 
+  include = c(448:454),
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+
+```{r NST-examine-raw-inputs}
+# w2
+tbl_summary(
+  w2, 
+  include = c(315:321),
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+```{r NST-examine-raw-inputs}
+# w3
+tbl_summary(
+  w3, 
+  include = c(295:301),
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+```{r construct-NST-scale}
+#Baseline
+baseline_scales <- baseline %>% 
+  mutate(NST_item1 = `@74673`,
+         NST_item2 = `@35201`,
+         NST_item3 = `@53819`,
+         NST_item4 = `@51902`,
+         NST_item5 = `@49388`,
+         NST_item6 = `@11637`,
+         NST_item7 = `@78709`) 
+
+# Construct NST score as arithmetic mean of individual items 
+# If three items or fewer are missing, then still construct the scale
+baseline_scales <- baseline_scales %>% 
+     rowwise() %>% 
+     mutate(count_NST_nas = sum(is.na(c_across(starts_with("NST_")))),
+       NST_score_baseline = case_when(
+         count_NST_nas <=3 ~ mean(c_across(starts_with("NST_")), na.rm = TRUE),
+         count_NST_nas >3 ~ NA)) %>% 
+     ungroup() 
+```
+
+```{r construct-NST-scale}
+#w2
+w2_scales <- w2 %>% 
+  mutate(NST_item1 = `@74673`,
+         NST_item2 = `@35201`,
+         NST_item3 = `@53819`,
+         NST_item4 = `@51902`,
+         NST_item5 = `@49388`,
+         NST_item6 = `@11637`,
+         NST_item7 = `@78709`) 
+
+
+# Construct NST score as arithmetic mean of individual items 
+# If three items or fewer are missing, then still construct the scale
+w2_scales <- w2_scales %>% 
+     rowwise() %>% 
+     mutate(count_NST_nas = sum(is.na(c_across(starts_with("NST_")))),
+       NST_score_w2 = case_when(
+         count_NST_nas <=3 ~ mean(c_across(starts_with("NST_")), na.rm = TRUE),
+         count_NST_nas >3 ~ NA)) %>% 
+     ungroup() 
+```
+
+```{r construct-NST-scale}
+#w3
+w3_scales <- w3 %>% 
+  mutate(NST_item1 = `@74673`,
+         NST_item2 = `@35201`,
+         NST_item3 = `@53819`,
+         NST_item4 = `@51902`,
+         NST_item5 = `@49388`,
+         NST_item6 = `@11637`,
+         NST_item7 = `@78709`) 
+
+# Construct NST score as arithmetic mean of individual items 
+# If three items or fewer are missing, then still construct the scale
+w3_scales <- w3_scales %>% 
+     rowwise() %>% 
+     mutate(count_NST_nas = sum(is.na(c_across(starts_with("NST_")))),
+       NST_score_w3 = case_when(
+         count_NST_nas <=3 ~ mean(c_across(starts_with("NST_")), na.rm = TRUE),
+         count_NST_nas >3 ~ NA)) %>% 
+     ungroup() 
+```
+
+```{r}
+# Check
+baseline_scales %>% 
+  select(448:454, NST_score_baseline, NST.Total) 
+```
+```{r}
+# Check
+w2_scales %>% 
+  select(315:321, NST_score_w2, NST.Total) 
+```
+
+
+# Simplify datasets to needed variables
+```{r}
+baseline_subset <- baseline_scales %>% 
+  select(ID, Cohort, NST_score_baseline, Group, SITE.NUMBER)
+
+w2_subset <- w2_scales %>% 
+  select(ID, NST_score_w2)
+
+w3_subset <- w3_scales %>% 
+  select(ID, NST_score_w3)
+```
+
+
+# Combine w2 and w3
+```{r}
+w2w3_combined <- w2_subset %>% 
+  full_join(w3_subset, by = "ID") %>% 
+  mutate(NST_score_w2w3 = case_when(
+    !is.na(NST_score_w2) ~ NST_score_w2,
+    !is.na(NST_score_w3) ~ NST_score_w3,
+    TRUE ~ NA
+  )) %>% 
+  select(ID, NST_score_w2w3)
+```
+
+# Join w2w3 to baseline
+# Left join so that supplemental people without baseline are excluded
+```{r}
+long_data <- baseline_subset %>% 
+  left_join(w2w3_combined, by = "ID")
+```
+
+
+# Subset to longitudinal participants with baseline and follow-up for SCT
+```{r}
+NST_complete <- long_data %>% 
+  mutate(missing_baseline = is.na(NST_score_baseline),
+         missing_followup = is.na(NST_score_w2w3)) %>% 
+  filter(missing_baseline == FALSE & missing_followup == FALSE) %>% 
+  select(-missing_baseline, -missing_followup)
+```
+
+# Pivot data so there is only one y column
+```{r}
+NST_complete_pivot <- NST_complete %>% 
+  pivot_longer(cols = c(NST_score_baseline, NST_score_w2w3), names_to = "time", 
+               names_prefix = "NST_score_", values_to = "NST_score")
+  
+```
+
+
+
+# View distribution of outcome by group and wave
+```{r}
+NST_complete_pivot %>% 
+  ggplot(mapping = aes(x = NST_score)) +
+  geom_histogram(bins = 15) +
+  facet_grid(vars(Group), vars(time))
+```
+
+# Manual diff-in-diff to plot
+```{r, fig.width = 8, fig.height = 4}
+NST_plot_vals <- NST_complete_pivot %>% 
+  mutate(group = case_when(
+    Group == 1 ~ "Intervention",
+    Group == 0 ~ "Control"
+  )) %>% 
+  group_by(group, time) %>% 
+  summarise(mean_NST = mean(NST_score),
+            se_NST = sd(NST_score) / sqrt(n()),
+            upper = mean_NST +(-1.96 * se_NST),
+            lower = mean_NST + (1.96 * se_NST))
+
+NST_plot_vals %>% 
+  ggplot(mapping = aes(x = time, y = mean_NST, color = group)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper), fatten = 8, linewidth = 1) +
+  geom_line(aes(group = group), size = 1) 
+```
+

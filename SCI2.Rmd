@@ -1,5 +1,5 @@
 ---
-title: "PARCS longitudinal data"
+title: "Data Processing - SCI 2"
 author: "Rachel L. Thompson"
 date: "2023-12-01"
 output: html_document
@@ -9,6 +9,8 @@ output: html_document
 library(tidyverse)
 library(haven)
 library(gtsummary)
+library(lme4)
+library(PerformanceAnalytics)
 ```
 
 
@@ -16,11 +18,78 @@ library(gtsummary)
 ```{r read-data, message=FALSE, include=FALSE}
 baseline <- read_sav("Data/MASTER baseline _Adult and Youth merged FINAL 7.5.20.sav")
 
-w2 <- read_sav("Data/MASTER w2 adult and youth merged.sav")
+w2 <- read_sav("Data/MASTER w2 adult and youth merged FIXED.sav")
 
 w3 <- read_sav("Data/MASTER W3 adult and youth merged FINAL.sav")
 
 ```
+
+
+## Manually Recode @87354 for W2 Supplements with 0s (Should be 5)
+```{r}
+# w2_fixed <- w2 %>%
+#   mutate(fixed_87354 = case_when(
+#     ID == 112064 ~ 5,
+#     ID == 116064 ~ 5,
+#     ID == 111061 ~ 5,
+#     ID == 105062 ~ 5,
+#     ID == 118064 ~ 5,
+#     ID == 117073 ~ 5,
+#     ID == 207065 ~ 5,
+#     ID == 112073 ~ 5,
+#     ID == 108023 ~ 5,
+#     ID == 108070 ~ 5,
+#     ID == 111067 ~ 5,
+#     TRUE ~ `@87354`
+#   ))
+# 
+# write_sav(w2_fixed, path = "Data/MASTER w2 adult and youth merged FIXED.sav")
+```
+
+
+
+
+```{r}
+baseline_doubles <- baseline %>% 
+  group_by(ID) %>% 
+  summarise(n = n()) 
+
+baseline_doubles %>% 
+  filter(n > 1) 
+```
+
+
+
+```{r}
+w2_doubles <- w2 %>% 
+  mutate(ID_num = as.numeric(ID)) %>% 
+  group_by(ID_num) %>% 
+  summarise(n = n()) 
+
+w2_dup_IDs <- w2_doubles %>% 
+  filter(n > 1) %>% 
+  select(ID_num) #%>% 
+  # left_join(w2, by = "ID")
+
+w2_dup_IDs <- as.list(w2_dup_IDs$ID_num)
+
+w2 <- w2 %>% 
+  filter(!(as.numeric(ID) %in% w2_dup_IDs)) 
+```
+
+
+
+```{r}
+w3_doubles <- w3 %>% 
+  group_by(ID) %>% 
+  summarise(n = n()) 
+
+w3_doubles %>% 
+  filter(n > 1)
+```
+
+
+
 
 # Overall sample size check
 ```{r}
@@ -35,11 +104,14 @@ w2 %>%
   group_by(COHORT) %>% 
   summarise(n = n())
 ```
+
+
 ```{r}
 w3 %>% 
   group_by(COHORT) %>% 
   summarise(n = n())
 ```
+
 # Construct Scales at Each Time Point
 
 ## Sense of Community Index II
@@ -74,7 +146,7 @@ Subscales
 - Influence = Q13 + Q14 + Q15 + Q16 + Q17 + Q18
 - Shared Emotional Connection = Q19 + Q20 + Q21 + Q22 + Q23 + Q24
 
-## Examine Raw Inputs (check for werid and missing things)
+## Examine Raw Inputs (check for weird and missing things)
 ```{r}
 # Baseline
 tbl_summary(
@@ -95,7 +167,6 @@ tbl_summary(
 )
 ```
 
-
 ```{r}
 # W3
 tbl_summary(
@@ -112,15 +183,26 @@ tbl_summary(
 # Construct SCI II Score from questions - baseline
 baseline_scales <- baseline %>% 
     rowwise() %>% 
-    mutate(SCI2_score_baseline = sum(c_across(272:295))) %>% 
+    mutate(SCI2_score_baseline = sum(c_across(272:295)),
+           count_nas = sum(is.na(c_across(272:295))),
+           AVG_SCI2_score_baseline = case_when(
+             count_nas <= 5 ~ mean(c_across(272:295), na.rm = TRUE),
+             count_nas > 5 ~ NA
+           )) %>% 
     ungroup()
 ```
+
 
 ```{r}
 # Construct SCI II Score from questions - w2
 w2_scales <- w2 %>% 
     rowwise() %>% 
-    mutate(SCI2_score_w2 = sum(c_across(150:173))) %>% 
+    mutate(SCI2_score_w2 = sum(c_across(150:173)),
+           count_nas = sum(is.na(c_across(150:173))),
+           AVG_SCI2_score_w2 = case_when(
+             count_nas <= 5 ~ mean(c_across(150:173), na.rm = TRUE),
+             count_nas > 5 ~ NA
+           )) %>% 
     ungroup()
 ```
 
@@ -128,29 +210,32 @@ w2_scales <- w2 %>%
 # Construct SCI II Score from questions - w3
 w3_scales <- w3 %>% 
     rowwise() %>% 
-    mutate(SCI2_score_w3 = sum(c_across(188:211))) %>% 
+    mutate(SCI2_score_w3 = sum(c_across(188:211)),
+           count_nas = sum(is.na(c_across(188:211))),
+           AVG_SCI2_score_w3 = case_when(
+             count_nas <= 5 ~ mean(c_across(188:211), na.rm = TRUE),
+             count_nas > 5 ~ NA
+           )) %>% 
     ungroup()
 ```
-
-
 
 ```{r}
 # Check
 baseline_scales %>% 
-  select(272:295, SCI2_score_baseline, SCI.II.Total) 
+  select(272:295, SCI2_score_baseline, SCI.II.Total, AVG_SCI2_score_baseline) 
 ```
+
 ```{r}
 # Check
 w2_scales %>% 
-  select(150:173, SCI2_score_w2, SCI.II.Total) 
+  select(150:173, SCI2_score_w2, SCI.II.Total, AVG_SCI2_score_w2) 
 ```
+
 ```{r}
 # Check
 w3_scales %>% 
-  select(188:211, SCI2_score_w3, SCI.II.Total) 
+  select(188:211, SCI2_score_w3, SCI.II.Total, AVG_SCI2_score_w3) 
 ```
-
-
 
 
 ```{r}
@@ -163,6 +248,7 @@ baseline_scales <- baseline_scales %>%
          SCI2_shared_emotional_connection_baseline = `@77731`+ `@25861` + `@60118`+ `@16393` + `@87417` +
            `@18861`) 
 ```
+
 
 ```{r}
 # Construct SCI 2 subscales - w2
@@ -198,6 +284,7 @@ baseline_scales %>%
 w2_scales %>% 
   select(starts_with("SCI2"), starts_with("SCI.II"))
 ```
+
 ```{r}
 # Check
 w3_scales %>% 
@@ -209,7 +296,7 @@ w3_scales %>%
 # Baseline
 tbl_summary(
   baseline_scales, 
-  include = c(SCI2_score_baseline),
+  include = c(SCI2_score_baseline, AVG_SCI2_score_baseline),
   by = `@87354`
 )
 ```
@@ -218,25 +305,25 @@ tbl_summary(
 # w2
 tbl_summary(
   w2_scales, 
-  include = c(SCI2_score_w2),
-  by = `@87354`
+  include = c(SCI2_score_w2, AVG_SCI2_score_w2),
+  by = fixed_87354
 )
 ```
-
 
 ```{r}
 # w3
 tbl_summary(
   w3_scales, 
-  include = c(SCI2_score_w3),
+  include = c(SCI2_score_w3, AVG_SCI2_score_w3),
   by = `@87354`
 )
 ```
 
+## ANALYSIS 1: SCI2 Score as SUM
 # Simplify datasets to needed variables
 ```{r}
 baseline_subset <- baseline_scales %>% 
-  select(ID, Cohort, SCI2_score_baseline, Group)
+  select(ID, Cohort, SCI2_score_baseline, Group, SITE.NUMBER)
 
 w2_subset <- w2_scales %>% 
   select(ID, SCI2_score_w2)
@@ -283,23 +370,14 @@ SCI2_complete_pivot <- SCI2_complete %>%
   
 ```
  
+ 
 # View distribution of outcome by group and wave
 ```{r}
 SCI2_complete_pivot %>% 
   ggplot(mapping = aes(x = SCI2_score)) +
-  geom_histogram() +
+  geom_histogram(bins = 15) +
   facet_grid(vars(Group), vars(time))
 ```
-
-# Fit linear model
-```{r}
-SCI2_did <- lm(SCI2_score ~ 
-     Group + time + (Group * time), 
-   data = SCI2_complete_pivot)
-
-summary(SCI2_did)
-```
-
 
 
 # Manual diff-in-diff to plot
@@ -321,7 +399,90 @@ SCI2_plot_vals %>%
   geom_line(aes(group = group), size = 1) 
 ```
 
-```{r}
 
+
+
+
+## ANALYSIS 2: SCI2 Score as AVG
+# Simplify datasets to needed variables
+```{r}
+baseline_subset <- baseline_scales %>% 
+  select(ID, Cohort, AVG_SCI2_score_baseline, Group, SITE.NUMBER)
+
+w2_subset <- w2_scales %>% 
+  select(ID, AVG_SCI2_score_w2)
+
+w3_subset <- w3_scales %>% 
+  select(ID, AVG_SCI2_score_w3)
 ```
+
+# Combine w2 and w3
+```{r}
+w2w3_combined <- w2_subset %>% 
+  full_join(w3_subset, by = "ID") %>% 
+  mutate(AVG_SCI2_score_w2w3 = case_when(
+    !is.na(AVG_SCI2_score_w2) ~ AVG_SCI2_score_w2,
+    !is.na(AVG_SCI2_score_w3) ~ AVG_SCI2_score_w3,
+    TRUE ~ NA
+  )) %>% 
+  select(ID, AVG_SCI2_score_w2w3)
+```
+
+# Join w2w3 to baseline
+# Left join so that supplemental people without baseline are excluded
+```{r}
+long_data <- baseline_subset %>% 
+  left_join(w2w3_combined, by = "ID")
+```
+
+
+
+# Subset to longitudinal participants with baseline and follow-up for SCI-2
+```{r}
+SCI2_complete <- long_data %>% 
+  mutate(missing_baseline = is.na(AVG_SCI2_score_baseline),
+         missing_followup = is.na(AVG_SCI2_score_w2w3)) %>% 
+  filter(missing_baseline == FALSE & missing_followup == FALSE) %>% 
+  select(-missing_baseline, -missing_followup)
+```
+
+# Pivot data so there is only one y column
+```{r}
+SCI2_complete_pivot <- SCI2_complete %>% 
+  pivot_longer(cols = c(AVG_SCI2_score_baseline, AVG_SCI2_score_w2w3), names_to = "time", 
+               names_prefix = "AVG_SCI2_score_", values_to = "AVG_SCI2_score")
+  
+```
+ 
+ 
+# View distribution of outcome by group and wave
+```{r}
+SCI2_complete_pivot %>% 
+  ggplot(mapping = aes(x = AVG_SCI2_score)) +
+  geom_histogram(bins = 15) +
+  facet_grid(vars(Group), vars(time))
+```
+
+# Manual diff-in-diff to plot
+```{r, fig.width = 8, fig.height = 4}
+SCI2_plot_vals <- SCI2_complete_pivot %>% 
+  mutate(group = case_when(
+    Group == 1 ~ "Intervention",
+    Group == 0 ~ "Control"
+  )) %>% 
+  group_by(group, time) %>% 
+  summarise(mean_SCI2 = mean(AVG_SCI2_score),
+            se_SCI2 = sd(AVG_SCI2_score) / sqrt(n()),
+            upper = mean_SCI2 +(-1.96 * se_SCI2),
+            lower = mean_SCI2 + (1.96 * se_SCI2))
+
+SCI2_plot_vals %>% 
+  ggplot(mapping = aes(x = time, y = mean_SCI2, color = group)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper), fatten = 8, linewidth = 1) +
+  geom_line(aes(group = group), size = 1) 
+```
+
+
+
+
 

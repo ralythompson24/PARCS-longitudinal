@@ -1,0 +1,788 @@
+---
+title: "data processing - SF-12"
+output: html_document
+date: "2023-12-27"
+---
+
+# Construct Scales at Each Time Point
+
+## Short Form 12
+https://www.rand.org/health-care/surveys_tools/mos/36-item-short-form/scoring.html
+
+Scoring the RAND 36-Item Health Survey is a two-step process. First, precoded numeric values are recoded per the scoring key given in Table 1. Note that all items are scored so that a high score defines a more favorable health state. In addition, each item is scored on a 0 to 100 range so that the lowest and highest possible scores are 0 and 100, respectively. Scores represent the percentage of total possible score achieved. In step 2, items in the same scale are averaged together to create the 8 scale scores. Table 2 lists the items averaged together to create each scale. Items that are left blank (missing data) are not taken into account when calculating the scale scores. Hence, scale scores represent the average for all items in the scale that the respondent answered.
+
+Step 1: Rescale all variables to original SF numeric values (starting at 1)
+ 
+## Examine Raw Inputs (check for weird and missing things)
+```{r}
+# Baseline
+tbl_summary(
+  baseline,
+  include = c(373:384), 
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+```{r}
+# W2
+tbl_summary(
+  w2,
+  include = c(250:261), 
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+```{r}
+# W3
+tbl_summary(
+  w3,
+  include = c(303:314), 
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+# Create new variable names, rescale
+```{r}
+# Baseline
+baseline_scales <- baseline %>% 
+  mutate(GH1 = `@50825` + 1,
+         PF02 = `@52958` + 1,
+         PF04 = `@20357` + 1,
+         RP2 = case_when(
+           `@56071` == 0 ~ 2,
+           `@56071` == 1 ~ 1),
+         RP3 = case_when(
+           `@79588` == 0 ~ 2,
+           `@79588` == 1 ~ 1),
+         RE2 = case_when(
+           `@22450` == 0 ~ 2,
+           `@22450` == 1 ~ 1),
+         RE3 = case_when(
+           `@9052` == 0 ~ 2,
+           `@9052` == 1 ~ 1),
+         BP2 = `@85234` + 1,
+         MH3 = `@16585` + 1,
+         VT2 = `@1688` + 1,
+         MH4 = `@22709` + 1,
+         SF2 = `@57608` + 1) 
+```
+
+```{r}
+# W2
+w2_scales <- w2 %>% 
+  mutate(GH1 = `@50825` + 1,
+         PF02 = `@52958` + 1,
+         PF04 = `@20357` + 1,
+         RP2 = case_when(
+           `@56071` == 0 ~ 2,
+           `@56071` == 1 ~ 1),
+         RP3 = case_when(
+           `@79588` == 0 ~ 2,
+           `@79588` == 1 ~ 1),
+         RE2 = case_when(
+           `@22450` == 0 ~ 2,
+           `@22450` == 1 ~ 1),
+         RE3 = case_when(
+           `@9052` == 0 ~ 2,
+           `@9052` == 1 ~ 1),
+         BP2 = `@85234` + 1,
+         MH3 = `@16585` + 1,
+         VT2 = `@1688` + 1,
+         MH4 = `@22709` + 1,
+         SF2 = `@57608` + 1) 
+```
+
+```{r}
+# W3
+w3_scales <- w3 %>% 
+  mutate(GH1 = `@50825` + 1,
+         PF02 = `@52958` + 1,
+         PF04 = `@20357` + 1,
+         RP2 = case_when(
+           `@56071` == "No" ~ 2,
+           `@56071` == "Yes" ~ 1),
+         RP3 = case_when(
+           `@79588` == "No" ~ 2,
+           `@79588` == "Yes" ~ 1),
+         RE2 = case_when(
+           `@22450` == "No" ~ 2,
+           `@22450` == "Yes" ~ 1),
+         RE3 = case_when(
+           `@9052` == "No" ~ 2,
+           `@9052` == "Yes" ~ 1),
+         BP2 = `@85234` + 1,
+         MH3 = `@16585` + 1,
+         VT2 = `@1688` + 1,
+         MH4 = `@22709` + 1,
+         SF2 = `@57608` + 1) 
+```
+
+Step 2 - recode item values to values of 0 to 100 per SF-36 scoring instructions
+https://www.rand.org/health-care/surveys_tools/mos/36-item-short-form/scoring.html
+
+```{r}
+baseline_scales <- baseline_scales %>% 
+  mutate(SF_1 = case_when(
+      GH1 == 1 ~ 100,
+      GH1 == 2 ~ 75,
+      GH1 == 3 ~ 50, 
+      GH1 == 4 ~ 25,
+      GH1 == 5 ~ 0
+    ),
+    SF_2 = case_when(
+      PF02 == 1 ~ 0,
+      PF02 == 2 ~ 50,
+      PF02 == 3 ~ 100
+    ),
+    SF_3 = case_when(
+      PF04 == 1 ~ 0,
+      PF04 == 2 ~ 50,
+      PF04 == 3 ~ 100
+    ),
+    SF_4 = case_when(
+      RP2 == 1 ~ 0,
+      RP2 == 2 ~ 100
+    ),
+    SF_5 = case_when(
+      RP3 == 1 ~ 0,
+      RP3 == 2 ~ 100
+    ),
+    SF_6 = case_when(
+      RE2 == 1 ~ 0,
+      RE2 == 2 ~ 100
+    ),
+    SF_7 = case_when(
+      RE3 == 1 ~ 0,
+      RE3 == 2 ~ 100
+    ),
+    SF_8 = case_when(
+      BP2 == 1 ~ 100,
+      BP2 == 2 ~ 75,
+      BP2 == 3 ~ 50, 
+      BP2 == 4 ~ 25,
+      BP2 == 5 ~ 0
+    ),
+    SF_9 = case_when(
+      MH3 == 1 ~ 100,
+      MH3 == 2 ~ 80,
+      MH3 == 3 ~ 60,
+      MH3 == 4 ~ 40,
+      MH3 == 5 ~ 20,
+      MH3 == 6 ~ 0
+    ),
+    SF_10 = case_when(
+      VT2 == 1 ~ 100,
+      VT2 == 2 ~ 80,
+      VT2 == 3 ~ 60,
+      VT2 == 4 ~ 40,
+      VT2 == 5 ~ 20,
+      VT2 == 6 ~ 0
+    ),
+    SF_11 = case_when(
+      MH4 == 1 ~ 0,
+      MH4 == 2 ~ 20,
+      MH4 == 3 ~ 40,
+      MH4 == 4 ~ 60,
+      MH4 == 5 ~ 80,
+      MH4 == 6 ~ 100
+    ),
+    # Last question has erroneous "extra" value (3) "A Good Bit of the Time"
+    # Consider this the same way as the center value (4) "Some of the Time" and
+    # assign 50 points
+    # Furthermore, consider values of (5) as 75 points, and values of (6) as 100
+    SF_12 = case_when(
+      SF2 == 1 ~ 0,
+      SF2 == 2 ~ 25,
+      SF2 %in% c(3,4) ~ 50,
+      SF2 == 5 ~ 75,
+      SF2 == 6 ~ 100
+    ))
+
+```
+
+```{r}
+w2_scales <- w2_scales %>% 
+  mutate(SF_1 = case_when(
+      GH1 == 1 ~ 100,
+      GH1 == 2 ~ 75,
+      GH1 == 3 ~ 50, 
+      GH1 == 4 ~ 25,
+      GH1 == 5 ~ 0
+    ),
+    SF_2 = case_when(
+      PF02 == 1 ~ 0,
+      PF02 == 2 ~ 50,
+      PF02 == 3 ~ 100
+    ),
+    SF_3 = case_when(
+      PF04 == 1 ~ 0,
+      PF04 == 2 ~ 50,
+      PF04 == 3 ~ 100
+    ),
+    SF_4 = case_when(
+      RP2 == 1 ~ 0,
+      RP2 == 2 ~ 100
+    ),
+    SF_5 = case_when(
+      RP3 == 1 ~ 0,
+      RP3 == 2 ~ 100
+    ),
+    SF_6 = case_when(
+      RE2 == 1 ~ 0,
+      RE2 == 2 ~ 100
+    ),
+    SF_7 = case_when(
+      RE3 == 1 ~ 0,
+      RE3 == 2 ~ 100
+    ),
+    SF_8 = case_when(
+      BP2 == 1 ~ 100,
+      BP2 == 2 ~ 75,
+      BP2 == 3 ~ 50, 
+      BP2 == 4 ~ 25,
+      BP2 == 5 ~ 0
+    ),
+    SF_9 = case_when(
+      MH3 == 1 ~ 100,
+      MH3 == 2 ~ 80,
+      MH3 == 3 ~ 60,
+      MH3 == 4 ~ 40,
+      MH3 == 5 ~ 20,
+      MH3 == 6 ~ 0
+    ),
+    SF_10 = case_when(
+      VT2 == 1 ~ 100,
+      VT2 == 2 ~ 80,
+      VT2 == 3 ~ 60,
+      VT2 == 4 ~ 40,
+      VT2 == 5 ~ 20,
+      VT2 == 6 ~ 0
+    ),
+    SF_11 = case_when(
+      MH4 == 1 ~ 0,
+      MH4 == 2 ~ 20,
+      MH4 == 3 ~ 40,
+      MH4 == 4 ~ 60,
+      MH4 == 5 ~ 80,
+      MH4 == 6 ~ 100
+    ),
+    # Last question has erroneous "extra" value (3) "A Good Bit of the Time"
+    # Consider this the same way as the center value (4) "Some of the Time" and
+    # assign 50 points
+    # Furthermore, consider values of (5) as 75 points, and values of (6) as 100
+    SF_12 = case_when(
+      SF2 == 1 ~ 0,
+      SF2 == 2 ~ 25,
+      SF2 %in% c(3,4) ~ 50,
+      SF2 == 5 ~ 75,
+      SF2 == 6 ~ 100
+    ))
+
+```
+
+```{r}
+w3_scales <- w3_scales %>% 
+  mutate(SF_1 = case_when(
+      GH1 == 1 ~ 100,
+      GH1 == 2 ~ 75,
+      GH1 == 3 ~ 50, 
+      GH1 == 4 ~ 25,
+      GH1 == 5 ~ 0
+    ),
+    SF_2 = case_when(
+      PF02 == 1 ~ 0,
+      PF02 == 2 ~ 50,
+      PF02 == 3 ~ 100
+    ),
+    SF_3 = case_when(
+      PF04 == 1 ~ 0,
+      PF04 == 2 ~ 50,
+      PF04 == 3 ~ 100
+    ),
+    SF_4 = case_when(
+      RP2 == 1 ~ 0,
+      RP2 == 2 ~ 100
+    ),
+    SF_5 = case_when(
+      RP3 == 1 ~ 0,
+      RP3 == 2 ~ 100
+    ),
+    SF_6 = case_when(
+      RE2 == 1 ~ 0,
+      RE2 == 2 ~ 100
+    ),
+    SF_7 = case_when(
+      RE3 == 1 ~ 0,
+      RE3 == 2 ~ 100
+    ),
+    SF_8 = case_when(
+      BP2 == 1 ~ 100,
+      BP2 == 2 ~ 75,
+      BP2 == 3 ~ 50, 
+      BP2 == 4 ~ 25,
+      BP2 == 5 ~ 0
+    ),
+    SF_9 = case_when(
+      MH3 == 1 ~ 100,
+      MH3 == 2 ~ 80,
+      MH3 == 3 ~ 60,
+      MH3 == 4 ~ 40,
+      MH3 == 5 ~ 20,
+      MH3 == 6 ~ 0
+    ),
+    SF_10 = case_when(
+      VT2 == 1 ~ 100,
+      VT2 == 2 ~ 80,
+      VT2 == 3 ~ 60,
+      VT2 == 4 ~ 40,
+      VT2 == 5 ~ 20,
+      VT2 == 6 ~ 0
+    ),
+    SF_11 = case_when(
+      MH4 == 1 ~ 0,
+      MH4 == 2 ~ 20,
+      MH4 == 3 ~ 40,
+      MH4 == 4 ~ 60,
+      MH4 == 5 ~ 80,
+      MH4 == 6 ~ 100
+    ),
+    # Last question has erroneous "extra" value (3) "A Good Bit of the Time"
+    # Consider this the same way as the center value (4) "Some of the Time" and
+    # assign 50 points
+    # Furthermore, consider values of (5) as 75 points, and values of (6) as 100
+    SF_12 = case_when(
+      SF2 == 1 ~ 0,
+      SF2 == 2 ~ 25,
+      SF2 %in% c(3,4) ~ 50,
+      SF2 == 5 ~ 75,
+      SF2 == 6 ~ 100
+    ))
+
+```
+
+
+Step 3 - Construct subscales by averaging components
+
+```{r}
+baseline_scales <- baseline_scales %>% 
+  mutate(
+    SF_GH = SF_1,
+    SF_PF = (SF_2 + SF_3) / 2,
+    SF_RP = (SF_4 + SF_5) / 2,
+    SF_RE = (SF_6 + SF_7) / 2,
+    SF_BP = SF_8,
+    SF_MH = (SF_9 + SF_11) / 2,
+    SF_VT = SF_10,
+    SF_SF = SF_12,
+  ) 
+```
+
+
+```{r}
+w2_scales <- w2_scales %>% 
+  mutate(
+    SF_GH = SF_1,
+    SF_PF = (SF_2 + SF_3) / 2,
+    SF_RP = (SF_4 + SF_5) / 2,
+    SF_RE = (SF_6 + SF_7) / 2,
+    SF_BP = SF_8,
+    SF_MH = (SF_9 + SF_11) / 2,
+    SF_VT = SF_10,
+    SF_SF = SF_12,
+  ) 
+```
+
+```{r}
+w3_scales <- w3_scales %>% 
+  mutate(
+    SF_GH = SF_1,
+    SF_PF = (SF_2 + SF_3) / 2,
+    SF_RP = (SF_4 + SF_5) / 2,
+    SF_RE = (SF_6 + SF_7) / 2,
+    SF_BP = SF_8,
+    SF_MH = (SF_9 + SF_11) / 2,
+    SF_VT = SF_10,
+    SF_SF = SF_12,
+  ) 
+```
+
+Step 4 - Construct overall summary physical and mental health scales using Ware method:
+https://www.researchgate.net/publication/242636950_SF-12_How_to_Score_the_SF-12_Physical_and_Mental_Health_Summary_Scales
+  
+Adapting SAS code to construct version 2.0
+https://labs.dgsom.ucla.edu/hays/pages/programs_utilities 
+
+*** 1) TRANSFORM SCORES TO Z-SCORES; ******* ;
+***    US GENERAL POPULATION MEANS AND SD'S ARE USED HERE ******* 
+***    (NOT AGE/GENDER BASED) *********************************** 
+
+```{r}
+baseline_scales <- baseline_scales %>%
+  mutate(
+   PF_Z = (SF_PF - 81.18122) / 29.10588,
+   RP_Z = (SF_RP - 80.52856) / 27.13526,
+   BP_Z = (SF_BP - 81.74015) / 24.53019,
+   GH_Z = (SF_GH - 72.19795) / 23.19041,
+   VT_Z = (SF_VT - 55.59090) / 24.84380,
+   SF_Z = (SF_SF - 83.73973) / 24.75775,
+   RE_Z = (SF_RE - 86.41051) / 22.35543,
+   MH_Z = (SF_MH - 70.18217) / 20.50597
+  )
+```
+
+
+```{r}
+w2_scales <- w2_scales %>%
+  mutate(
+   PF_Z = (SF_PF - 81.18122) / 29.10588,
+   RP_Z = (SF_RP - 80.52856) / 27.13526,
+   BP_Z = (SF_BP - 81.74015) / 24.53019,
+   GH_Z = (SF_GH - 72.19795) / 23.19041,
+   VT_Z = (SF_VT - 55.59090) / 24.84380,
+   SF_Z = (SF_SF - 83.73973) / 24.75775,
+   RE_Z = (SF_RE - 86.41051) / 22.35543,
+   MH_Z = (SF_MH - 70.18217) / 20.50597
+  )
+```
+
+```{r}
+w3_scales <- w3_scales %>%
+  mutate(
+   PF_Z = (SF_PF - 81.18122) / 29.10588,
+   RP_Z = (SF_RP - 80.52856) / 27.13526,
+   BP_Z = (SF_BP - 81.74015) / 24.53019,
+   GH_Z = (SF_GH - 72.19795) / 23.19041,
+   VT_Z = (SF_VT - 55.59090) / 24.84380,
+   SF_Z = (SF_SF - 83.73973) / 24.75775,
+   RE_Z = (SF_RE - 86.41051) / 22.35543,
+   MH_Z = (SF_MH - 70.18217) / 20.50597
+  )
+```
+
+*** 2) CREATE PHYSICAL AND MENTAL HEALTH COMPOSITE SCORES: **********
+***    MULTIPLY Z-SCORES BY VARIMAX-ROTATED FACTOR SCORING **********
+***    COEFFICIENTS AND SUM THE PRODUCTS ****************************
+
+```{r}
+baseline_scales <- baseline_scales %>% 
+  mutate(AGG_PHYS = (PF_Z * 0.42402) + 
+              (RP_Z * 0.35119) + 
+              (BP_Z * 0.31754) +
+              (GH_Z * 0.24954) + 
+              (VT_Z * 0.02877) + 
+              (SF_Z * -.00753) +
+              (RE_Z * -.19206) + 
+              (MH_Z * -.22069),
+   AGG_MENT = (PF_Z * -.22999) + 
+              (RP_Z * -.12329) + 
+              (BP_Z * -.09731) +
+              (GH_Z * -.01571) + 
+              (VT_Z * 0.23534) + 
+              (SF_Z * 0.26876) +
+              (RE_Z * 0.43407) + 
+              (MH_Z * 0.48581))
+```
+
+```{r}
+w2_scales <- w2_scales %>% 
+  mutate(AGG_PHYS = (PF_Z * 0.42402) + 
+              (RP_Z * 0.35119) + 
+              (BP_Z * 0.31754) +
+              (GH_Z * 0.24954) + 
+              (VT_Z * 0.02877) + 
+              (SF_Z * -.00753) +
+              (RE_Z * -.19206) + 
+              (MH_Z * -.22069),
+   AGG_MENT = (PF_Z * -.22999) + 
+              (RP_Z * -.12329) + 
+              (BP_Z * -.09731) +
+              (GH_Z * -.01571) + 
+              (VT_Z * 0.23534) + 
+              (SF_Z * 0.26876) +
+              (RE_Z * 0.43407) + 
+              (MH_Z * 0.48581))
+```
+
+
+```{r}
+w3_scales <- w3_scales %>% 
+  mutate(AGG_PHYS = (PF_Z * 0.42402) + 
+              (RP_Z * 0.35119) + 
+              (BP_Z * 0.31754) +
+              (GH_Z * 0.24954) + 
+              (VT_Z * 0.02877) + 
+              (SF_Z * -.00753) +
+              (RE_Z * -.19206) + 
+              (MH_Z * -.22069),
+   AGG_MENT = (PF_Z * -.22999) + 
+              (RP_Z * -.12329) + 
+              (BP_Z * -.09731) +
+              (GH_Z * -.01571) + 
+              (VT_Z * 0.23534) + 
+              (SF_Z * 0.26876) +
+              (RE_Z * 0.43407) + 
+              (MH_Z * 0.48581))
+```
+
+*** 3) TRANSFORM COMPOSITE AND SCALE SCORES TO T-SCORES: ****** 
+   
+```{r}
+baseline_scales <- baseline_scales %>% 
+  mutate(
+     AGG_PHYS_baseline = 50 + (AGG_PHYS * 10),
+     AGG_MENT_baseline = 50 + (AGG_MENT * 10),
+
+     PF_T_baseline = 50 + (PF_Z * 10),
+     RP_T_baseline = 50 + (RP_Z * 10),
+     BP_T_baseline = 50 + (BP_Z * 10),
+     GH_T_baseline = 50 + (GH_Z * 10),
+     VT_T_baseline = 50 + (VT_Z * 10),
+     RE_T_baseline = 50 + (RE_Z * 10),
+     SF_T_baseline = 50 + (SF_Z * 10),
+     MH_T_baseline = 50 + (MH_Z * 10)
+  )
+```
+
+```{r}
+hist(baseline_scales$AGG_PHYS_baseline)
+hist(baseline_scales$AGG_MENT_baseline)
+```
+```{r}
+w2_scales <- w2_scales %>% 
+  mutate(
+     AGG_PHYS_w2 = 50 + (AGG_PHYS * 10),
+     AGG_MENT_w2 = 50 + (AGG_MENT * 10),
+
+     PF_T_w2 = 50 + (PF_Z * 10),
+     RP_T_w2 = 50 + (RP_Z * 10),
+     BP_T_w2 = 50 + (BP_Z * 10),
+     GH_T_w2 = 50 + (GH_Z * 10),
+     VT_T_w2 = 50 + (VT_Z * 10),
+     RE_T_w2 = 50 + (RE_Z * 10),
+     SF_T_w2 = 50 + (SF_Z * 10),
+     MH_T_w2 = 50 + (MH_Z * 10)
+  )
+```
+
+```{r}
+hist(w2_scales$AGG_PHYS_w2)
+hist(w2_scales$AGG_MENT_w2)
+```
+
+```{r}
+w3_scales <- w3_scales %>% 
+  mutate(
+     AGG_PHYS_w3 = 50 + (AGG_PHYS * 10),
+     AGG_MENT_w3 = 50 + (AGG_MENT * 10),
+
+     PF_T_w3 = 50 + (PF_Z * 10),
+     RP_T_w3 = 50 + (RP_Z * 10),
+     BP_T_w3 = 50 + (BP_Z * 10),
+     GH_T_w3 = 50 + (GH_Z * 10),
+     VT_T_w3 = 50 + (VT_Z * 10),
+     RE_T_w3 = 50 + (RE_Z * 10),
+     SF_T_w3 = 50 + (SF_Z * 10),
+     MH_T_w3 = 50 + (MH_Z * 10)
+  )
+```
+
+```{r}
+hist(w3_scales$AGG_PHYS_w3)
+hist(w3_scales$AGG_MENT_w3)
+```
+
+Step 5 - Quality Checks
+- PF02, PF04, RP2, RP3, and BP2 should correlate highest with AGG_PHYS scale and lowest with AGG_MENT scale
+- SF2, RE2, RE3, MH3, MH4 should correlate highest with AGG_MENT scale and lowest with AGG_PHYS scale
+- GH1 should correlate higher with AGG_PHYS
+- VT2 should correlate higher with AGG_MENT
+- Correlation between AGG_PHYS and AGG_MENT should be low
+
+```{r, warning = FALSE}
+matrix_data <- baseline_scales %>% 
+  select(PF02, PF04, RP2, RP3, BP2, AGG_PHYS, AGG_MENT)
+
+chart.Correlation(matrix_data, histogram = TRUE, method = "spearman")
+```
+
+```{r, warning=FALSE}
+matrix_data2 <- baseline_scales %>% 
+  select(SF2, RE2, RE3, MH3, MH4, AGG_PHYS, AGG_MENT)
+
+chart.Correlation(matrix_data2, histogram = TRUE, method = "spearman")
+```
+```{r, warning=FALSE}
+matrix_data3 <- baseline_scales %>% 
+  select(GH1, VT2, AGG_PHYS, AGG_MENT)
+
+chart.Correlation(matrix_data3, histogram = TRUE, method = "spearman")
+```
+
+# Simplify datasets to needed variables
+```{r}
+baseline_subset <- baseline_scales %>% 
+  select(ID, Cohort, AGG_PHYS_baseline, AGG_MENT_baseline, Group, SITE.NUMBER)
+
+w2_subset <- w2_scales %>% 
+  select(ID, AGG_PHYS_w2, AGG_MENT_w2)
+
+w3_subset <- w3_scales %>% 
+  select(ID, AGG_PHYS_w3, AGG_MENT_w3)
+```
+
+# Combine w2 and w3
+```{r}
+w2w3_combined <- w2_subset %>% 
+  full_join(w3_subset, by = "ID") %>% 
+  mutate(AGG_PHYS_w2w3 = case_when(
+    !is.na(AGG_PHYS_w2) ~ AGG_PHYS_w2,
+    !is.na(AGG_PHYS_w3) ~ AGG_PHYS_w3,
+    TRUE ~ NA
+  ),
+  AGG_MENT_w2w3 = case_when(
+    !is.na(AGG_MENT_w2) ~ AGG_MENT_w2,
+    !is.na(AGG_MENT_w3) ~ AGG_MENT_w3,
+    TRUE ~ NA
+  )) %>% 
+  select(ID, AGG_PHYS_w2w3, AGG_MENT_w2w3)
+```
+
+# Join w2w3 to baseline
+# Left join so that supplemental people without baseline are excluded
+```{r}
+long_data <- baseline_subset %>% 
+  left_join(w2w3_combined, by = "ID")
+```
+
+
+
+# Subset to longitudinal participants with baseline and follow-up for AGG_PHYS & AGG_MENT
+```{r}
+AGG_PHYS_complete <- long_data %>% 
+  mutate(missing_baseline = is.na(AGG_PHYS_baseline),
+         missing_followup = is.na(AGG_PHYS_w2w3)) %>% 
+  filter(missing_baseline == FALSE & missing_followup == FALSE) %>% 
+  select(-missing_baseline, -missing_followup, -AGG_MENT_baseline, -AGG_MENT_w2w3)
+
+AGG_MENT_complete <- long_data %>% 
+  mutate(missing_baseline = is.na(AGG_MENT_baseline),
+         missing_followup = is.na(AGG_MENT_w2w3)) %>% 
+  filter(missing_baseline == FALSE & missing_followup == FALSE) %>% 
+  select(-missing_baseline, -missing_followup, -AGG_PHYS_baseline, -AGG_PHYS_w2w3)
+```
+
+# Pivot data so there is only one y column
+```{r}
+AGG_PHYS_complete_pivot <- AGG_PHYS_complete %>% 
+  pivot_longer(cols = c(AGG_PHYS_baseline, AGG_PHYS_w2w3), names_to = "time", 
+               names_prefix = "AGG_PHYS_", values_to = "AGG_PHYS")
+  
+AGG_MENT_complete_pivot <- AGG_MENT_complete %>% 
+  pivot_longer(cols = c(AGG_MENT_baseline, AGG_MENT_w2w3), names_to = "time", 
+               names_prefix = "AGG_MENT_", values_to = "AGG_MENT")
+```
+ 
+## Aggregate Physical Health Measure
+# View distribution of outcome by group and wave
+```{r}
+AGG_PHYS_complete_pivot %>% 
+  ggplot(mapping = aes(x = AGG_PHYS)) +
+  geom_histogram(bins = 15) +
+  facet_grid(vars(Group), vars(time))
+```
+
+
+# Fit linear mixed model
+```{r}
+AGG_PHYS_did <- lmer(AGG_PHYS ~ 
+     Group + time + (Group * time) + (1 | SITE.NUMBER), 
+   data = AGG_PHYS_complete_pivot)
+
+summary(AGG_PHYS_did)
+```
+
+# Check residuals for linear model
+
+```{r}
+res <- resid(AGG_PHYS_did)
+
+plot(fitted(AGG_PHYS_did), res)
+
+hist(res)
+```
+
+
+# Manual diff-in-diff to plot
+```{r, fig.width = 8, fig.height = 4}
+AGG_PHYS_plot_vals <- AGG_PHYS_complete_pivot %>% 
+  mutate(group = case_when(
+    Group == 1 ~ "Intervention",
+    Group == 0 ~ "Control"
+  )) %>% 
+  group_by(group, time) %>% 
+  summarise(mean_AGG_PHYS = mean(AGG_PHYS),
+            se_AGG_PHYS = sd(AGG_PHYS) / sqrt(n()),
+            upper = mean_AGG_PHYS +(-1.96 * se_AGG_PHYS),
+            lower = mean_AGG_PHYS + (1.96 * se_AGG_PHYS))
+
+AGG_PHYS_plot_vals %>% 
+  ggplot(mapping = aes(x = time, y = mean_AGG_PHYS, color = group)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper), fatten = 8, linewidth = 1) +
+  geom_line(aes(group = group), size = 1) 
+```
+
+ 
+## Aggregate Mental Health Measure
+# View distribution of outcome by group and wave
+```{r}
+AGG_MENT_complete_pivot %>% 
+  ggplot(mapping = aes(x = AGG_MENT)) +
+  geom_histogram(bins = 15) +
+  facet_grid(vars(Group), vars(time))
+```
+
+
+# Fit linear mixed model
+```{r}
+AGG_MENT_did <- lmer(AGG_MENT ~ 
+     Group + time + (Group * time) + (1 | SITE.NUMBER), 
+   data = AGG_MENT_complete_pivot)
+
+summary(AGG_MENT_did)
+```
+
+
+
+# Check residuals for linear model
+
+```{r}
+res <- resid(AGG_MENT_did)
+
+plot(fitted(AGG_MENT_did), res)
+
+hist(res)
+```
+
+
+# Manual diff-in-diff to plot
+```{r, fig.width = 8, fig.height = 4}
+AGG_MENT_plot_vals <- AGG_MENT_complete_pivot %>% 
+  mutate(group = case_when(
+    Group == 1 ~ "Intervention",
+    Group == 0 ~ "Control"
+  )) %>% 
+  group_by(group, time) %>% 
+  summarise(mean_AGG_MENT = mean(AGG_MENT),
+            se_AGG_MENT = sd(AGG_MENT) / sqrt(n()),
+            upper = mean_AGG_MENT +(-1.96 * se_AGG_MENT),
+            lower = mean_AGG_MENT + (1.96 * se_AGG_MENT))
+
+AGG_MENT_plot_vals %>% 
+  ggplot(mapping = aes(x = time, y = mean_AGG_MENT, color = group)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper), fatten = 8, linewidth = 1) +
+  geom_line(aes(group = group), size = 1) 
+```
+

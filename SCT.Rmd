@@ -1,0 +1,201 @@
+---
+title: "data processing - social cohesion and trust"
+output: html_document
+date: "2024-01-17"
+---
+
+# Community Cohesion Scale- Social Cohesion and Trust Subscale
+https://sparqtools.org/mobility-measure/collective-efficacy-scale/#all-survey-questions
+https://docs.google.com/document/d/1UFKLMUbs-4VJ1-A_qmP__2OLyR6DFEW6JLkjy-RRm4g/edit
+
+To complete the 5-item social cohesion and trust section, respondents use a different 5-point (1 = strongly agree; 5 = strongly disagree) to rate statements such as, “People around here are willing to help their neighbors.” Researchers later reverse-code the two negatively worded items so that high values mean more collective efficacy, and then calculate a score for each respondent by averaging their ratings.
+
+
+## Examine raw inputs (check for weird and missing things)
+```{r SCT-examine-raw-inputs}
+# Baseline
+tbl_summary(
+  baseline, 
+  include = c(386:390),
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+```{r SCT-examine-raw-inputs}
+# W2
+tbl_summary(
+  w2, 
+  include = c(263:267),
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+```{r SCT-examine-raw-inputs}
+# W3
+tbl_summary(
+  w3, 
+  include = c(316:320),
+  missing = "always",
+  type = all_continuous() ~ "categorical"
+)
+```
+
+
+
+```{r construct-SCT-scale}
+#Baseline
+baseline_scales <- baseline %>% 
+  # Recode variables to be on 1-5 point scale instead of 0-4
+  # Reverse score items 4 and 5
+  mutate(SCT_item1 = `@17958` + 1,
+         SCT_item2 = `@23069` + 1,
+         SCT_item3 = `@21767` + 1,
+         SCT_item4 = (5 + 1) - (`@11280` + 1),
+         SCT_item5 = (5 + 1) - (`@2409` + 1)) 
+
+# Construct SCT score as arithmetic mean of individual items 
+# If two items or fewer are missing, then still construct the scale
+ baseline_scales <- baseline_scales %>% 
+     rowwise() %>% 
+     mutate(count_SCT_nas = sum(is.na(c_across(starts_with("SCT_")))),
+       SCT_score_baseline = case_when(
+         count_SCT_nas <=2 ~ mean(c_across(starts_with("SCT_")), na.rm = TRUE),
+         count_SCT_nas >2 ~ NA)) %>% 
+     ungroup() 
+```
+
+```{r construct-SCT-scale}
+#w2
+w2_scales <- w2 %>% 
+  # Recode variables to be on 1-5 point scale instead of 0-4
+  # Reverse score items 4 and 5
+  mutate(SCT_item1 = `@17958` + 1,
+         SCT_item2 = `@23069` + 1,
+         SCT_item3 = `@21767` + 1,
+         SCT_item4 = (5 + 1) - (`@11280` + 1),
+         SCT_item5 = (5 + 1) - (`@2409` + 1)) 
+
+# Construct SCT score as arithmetic mean of individual items 
+# If two items or fewer are missing, then still construct the scale
+ w2_scales <- w2_scales %>% 
+     rowwise() %>% 
+     mutate(count_SCT_nas = sum(is.na(c_across(starts_with("SCT_")))),
+       SCT_score_w2 = case_when(
+         count_SCT_nas <=2 ~ mean(c_across(starts_with("SCT_")), na.rm = TRUE),
+         count_SCT_nas >2 ~ NA)) %>% 
+     ungroup()
+```
+
+```{r construct-SCT-scale}
+#w3
+w3_scales <- w3 %>% 
+  # Recode variables to be on 1-5 point scale instead of 0-4
+  # Reverse score items 4 and 5
+  mutate(SCT_item1 = `@17958` + 1,
+         SCT_item2 = `@23069` + 1,
+         SCT_item3 = `@21767` + 1,
+         SCT_item4 = (5 + 1) - (`@11280` + 1),
+         SCT_item5 = (5 + 1) - (`@2409` + 1)) 
+
+# Construct SCT score as arithmetic mean of individual items 
+# If two items or fewer are missing, then still construct the scale
+ w3_scales <- w3_scales %>% 
+     rowwise() %>% 
+     mutate(count_SCT_nas = sum(is.na(c_across(starts_with("SCT_")))),
+       SCT_score_w3 = case_when(
+         count_SCT_nas <=2 ~ mean(c_across(starts_with("SCT_")), na.rm = TRUE),
+         count_SCT_nas >2 ~ NA)) %>% 
+     ungroup()
+```
+
+```{r}
+# Check
+baseline_scales %>% 
+  select(386:390, SCT_score_baseline, SocialCohTrust.Total) 
+```
+```{r}
+# Check
+w2_scales %>% 
+  select(263:267, SCT_score_w2, SocialCohTrust.Total) 
+```
+
+# Simplify datasets to needed variables
+```{r}
+baseline_subset <- baseline_scales %>% 
+  select(ID, Cohort, SCT_score_baseline, Group, SITE.NUMBER)
+
+w2_subset <- w2_scales %>% 
+  select(ID, SCT_score_w2)
+
+w3_subset <- w3_scales %>% 
+  select(ID, SCT_score_w3)
+```
+
+
+# Combine w2 and w3
+```{r}
+w2w3_combined <- w2_subset %>% 
+  full_join(w3_subset, by = "ID") %>% 
+  mutate(SCT_score_w2w3 = case_when(
+    !is.na(SCT_score_w2) ~ SCT_score_w2,
+    !is.na(SCT_score_w3) ~ SCT_score_w3,
+    TRUE ~ NA
+  )) %>% 
+  select(ID, SCT_score_w2w3)
+```
+
+# Join w2w3 to baseline
+# Left join so that supplemental people without baseline are excluded
+```{r}
+long_data <- baseline_subset %>% 
+  left_join(w2w3_combined, by = "ID")
+```
+
+
+# Subset to longitudinal participants with baseline and follow-up for SCT
+```{r}
+SCT_complete <- long_data %>% 
+  mutate(missing_baseline = is.na(SCT_score_baseline),
+         missing_followup = is.na(SCT_score_w2w3)) %>% 
+  filter(missing_baseline == FALSE & missing_followup == FALSE) %>% 
+  select(-missing_baseline, -missing_followup)
+```
+
+# Pivot data so there is only one y column
+```{r}
+SCT_complete_pivot <- SCT_complete %>% 
+  pivot_longer(cols = c(SCT_score_baseline, SCT_score_w2w3), names_to = "time", 
+               names_prefix = "SCT_score_", values_to = "SCT_score")
+  
+```
+
+
+
+# View distribution of outcome by group and wave
+```{r}
+SCT_complete_pivot %>% 
+  ggplot(mapping = aes(x = SCT_score)) +
+  geom_histogram(bins = 15) +
+  facet_grid(vars(Group), vars(time))
+```
+
+# Manual diff-in-diff to plot
+```{r, fig.width = 8, fig.height = 4}
+SCT_plot_vals <- SCT_complete_pivot %>% 
+  mutate(group = case_when(
+    Group == 1 ~ "Intervention",
+    Group == 0 ~ "Control"
+  )) %>% 
+  group_by(group, time) %>% 
+  summarise(mean_SCT = mean(SCT_score),
+            se_SCT = sd(SCT_score) / sqrt(n()),
+            upper = mean_SCT +(-1.96 * se_SCT),
+            lower = mean_SCT + (1.96 * se_SCT))
+
+SCT_plot_vals %>% 
+  ggplot(mapping = aes(x = time, y = mean_SCT, color = group)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper), fatten = 8, linewidth = 1) +
+  geom_line(aes(group = group), size = 1) 
+```
